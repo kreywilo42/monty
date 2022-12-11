@@ -1,2 +1,1 @@
-# monty
-grey
+ALX Monty
