@@ -1,47 +1,74 @@
 #include "monty.h"
-global_t header;
-/**
- * start_stack - declare and initialize header
- * @stack: Addres of stack
- */
-void start_stack(stack_t **stack)
-{
-	*stack = NULL;
-	header.first = stack;
-}
-/**
- * free_all - Free all asign malloc func
- */
-void free_all(void)
-{
-	stack_t *tmp1, *tmp2 = NULL;
+#include "lists.h"
 
-	tmp1 = *(header.first);
-	while (tmp1 != NULL)
+data_t data = DATA_INIT;
+
+/**
+ * monty - helper function for main function
+ * @args: pointer to struct of arguments from main
+ *
+ * Description: opens and reads from the file
+ * containing the opcodes, and calls the function
+ * that will find the corresponding executing function
+ */
+void monty(args_t *args)
+{
+	size_t len = 0;
+	int get = 0;
+	void (*code_func)(stack_t **, unsigned int);
+
+	if (args->ac != 2)
 	{
-		tmp2 = tmp1->next;
-		free(tmp1);
-		tmp1 = tmp2;
+		dprintf(STDERR_FILENO, USAGE);
+		exit(EXIT_FAILURE);
 	}
-	free(header.buffer);
-	fclose(header.file);
+	data.fptr = fopen(args->av, "r");
+	if (!data.fptr)
+	{
+		dprintf(STDERR_FILENO, FILE_ERROR, args->av);
+		exit(EXIT_FAILURE);
+	}
+	while (1)
+	{
+		args->line_number++;
+		get = getline(&(data.line), &len, data.fptr);
+		if (get < 0)
+			break;
+		data.words = strtow(data.line);
+		if (data.words[0] == NULL || data.words[0][0] == '#')
+		{
+			free_all(0);
+			continue;
+		}
+		code_func = get_func(data.words);
+		if (!code_func)
+		{
+			dprintf(STDERR_FILENO, UNKNOWN, args->line_number, data.words[0]);
+			free_all(1);
+			exit(EXIT_FAILURE);
+		}
+		code_func(&(data.stack), args->line_number);
+		free_all(0);
+	}
+	free_all(1);
 }
 
 /**
- * main - num of arguments
+ * main - entry point for monty bytecode interpreter
  * @argc: number of arguments
- * @argv: arguments
- * Return: EXIT_FAILURE on Fail, EXIT_SUCCES on Succes
+ * @argv: array of arguments
+ *
+ * Return: EXIT_SUCCESS or EXIT_FAILURE
  */
 int main(int argc, char *argv[])
 {
-	stack_t *stack;
+	args_t args;
 
-	start_stack(&stack);
-	if (argc == 2)
-	{
-		find_file(argv[1], &stack);
-	}
-	fprintf(stderr, "USAGE: monty file\n");
-	exit(EXIT_FAILURE);
+	args.av = argv[1];
+	args.ac = argc;
+	args.line_number = 0;
+
+	monty(&args);
+
+	return (EXIT_SUCCESS);
 }
